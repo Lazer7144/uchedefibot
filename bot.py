@@ -3,11 +3,11 @@ import random
 import logging
 from telegram import Update
 from telegram.ext import (
-    Updater,
+    Application,
     CommandHandler,
     MessageHandler,
-    Filters,
-    CallbackContext
+    filters,  # Changed from Filters to filters
+    ContextTypes
 )
 
 # Set up logging
@@ -29,7 +29,7 @@ TX_IDS = [
     "2kL3mN4oP5qR6sT7uV8wX9yZ0aB1cD2eF3gH4iJ5kL6mN7oP8qR9sT0uV"
 ]
 
-def start(update: Update, context: CallbackContext) -> None:
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user = update.effective_user
     message = (
         f"👋 Welcome {user.first_name}!\n\n"
@@ -39,9 +39,9 @@ def start(update: Update, context: CallbackContext) -> None:
         f"3. Follow us on Twitter: {TWITTER_USERNAME}\n\n"
         "💰 After completing these steps, send your Solana wallet address."
     )
-    update.message.reply_text(message)
+    await update.message.reply_text(message)
 
-def handle_address(update: Update, context: CallbackContext) -> None:
+async def handle_address(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     solana_address = update.message.text
     logger.info(f"Address received: {solana_address}")
     
@@ -56,24 +56,24 @@ def handle_address(update: Update, context: CallbackContext) -> None:
         "Note: This is a test transaction. No real SOL has been sent."
     )
     
-    update.message.reply_text(response)
+    await update.message.reply_text(response)
 
 def main() -> None:
     # Using your test token directly
     TOKEN = "8005794306:AAGlYcLN0ZGk8ETTXCatdfwK4fFpZYpojjA"
     
-    updater = Updater(TOKEN)
-    dispatcher = updater.dispatcher
+    # Create Application
+    application = Application.builder().token(TOKEN).build()
 
     # Handlers
-    dispatcher.add_handler(CommandHandler("start", start))
-    dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_address))
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_address))  # Fixed filters usage
 
     # Webhook setup for Render
     RENDER_EXTERNAL_URL = os.environ.get('RENDER_EXTERNAL_HOSTNAME')
     if RENDER_EXTERNAL_URL:
         PORT = int(os.environ.get('PORT', 8443))
-        updater.start_webhook(
+        application.run_webhook(
             listen="0.0.0.0",
             port=PORT,
             url_path=TOKEN,
@@ -82,10 +82,8 @@ def main() -> None:
         logger.info(f"Webhook set to: https://{RENDER_EXTERNAL_URL}/{TOKEN}")
     else:
         # Local polling
-        updater.start_polling()
+        application.run_polling()
         logger.info("Bot running in polling mode...")
-    
-    updater.idle()
 
 if __name__ == '__main__':
     main()
